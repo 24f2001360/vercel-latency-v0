@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from pydantic import BaseModel
 from typing import List
+import json
 
 app = FastAPI()
 
@@ -16,7 +17,13 @@ app.add_middleware(
     expose_headers=["*"],
 )
 
-# Explicit OPTIONS handler for Vercel
+@app.middleware("http")
+async def add_headers(request, call_next):
+    response = await call_next(request)
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Expose-Headers"] = "*"
+    return response
+
 @app.options("/{rest_of_path:path}")
 async def options_handler(rest_of_path: str):
     return Response(
@@ -25,21 +32,13 @@ async def options_handler(rest_of_path: str):
             "Access-Control-Allow-Origin": "*",
             "Access-Control-Allow-Methods": "*",
             "Access-Control-Allow-Headers": "*",
+            "Access-Control-Expose-Headers": "*",
         },
     )
 
-# Data
-DATA = [
-    {
-        "region": "apac",
-        "service": "analytics",
-        "latency_ms": 188.96,
-        "uptime_pct": 98.132,
-        "timestamp": 20250301
-    }
-]
-
-# (keep the rest of your DATA exactly same)
+# Load dataset
+with open("q-vercel-latency.json", "r") as f:
+    DATA = json.load(f)
 
 class Request(BaseModel):
     regions: List[str]
@@ -51,7 +50,6 @@ def p95(vals):
 
     lo = int(idx)
     hi = lo + 1
-
     frac = idx - lo
 
     if hi >= len(s):
@@ -63,14 +61,12 @@ def p95(vals):
     )
 
 @app.post("/")
+@app.post("")
 def analyze(req: Request):
     result = []
 
     for region in req.regions:
-        rows = [
-            r for r in DATA
-            if r["region"] == region
-        ]
+        rows = [r for r in DATA if r["region"] == region]
 
         if not rows:
             continue
@@ -91,7 +87,6 @@ def analyze(req: Request):
 
     return {"regions": result}
 
-# Health check route
 @app.get("/")
 def root():
     return {"status": "ok"}
