@@ -4,7 +4,10 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 from typing import List
 import json
+from pathlib import Path
 
+
+BASE_DIR = Path(__file__).resolve().parent
 app = FastAPI()
 
 # CORS
@@ -37,7 +40,7 @@ async def options_handler(rest_of_path: str):
     )
 
 # Load dataset
-with open("q-vercel-latency.json", "r") as f:
+with open(BASE_DIR / "q-vercel-latency.json") as f:
     DATA = json.load(f)
 
 class Request(BaseModel):
